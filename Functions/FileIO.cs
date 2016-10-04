@@ -7,9 +7,12 @@ using System.Threading.Tasks;
 using DataCore;
 using DataCore.Structures;
 using Grimoire.Functions;
+using Grimoire.Structures;
 
 namespace Grimoire.Functions
 {
+    // TODO: Add shrink results output
+
     public class FileIO
     {
         protected Core core;
@@ -34,6 +37,7 @@ namespace Grimoire.Functions
 
         public void Start()
         {
+            indexPath = OPT.Instance.GetString("client.path");
             dataDir = Path.GetDirectoryName(indexPath);
             buildDir = OPT.Instance.GetString("build.path");
             core = new Core(System.Text.Encoding.Default, OPT.Instance.GetBool("backups"));
@@ -53,6 +57,14 @@ namespace Grimoire.Functions
 
         protected void setEvents()
         {
+            core.MessageOccured += (o, x) => 
+            {
+                string output = null;
+                if (x.Tab) { for (int i = 0; i < x.TabCount; i++) { output += "\t"; } }
+                output += string.Format("- {0}", x.Message);
+                if (x.Break) { for (int i = 0; i < x.BreakCount; i++) { output += "\n"; } }
+                Console.Write(output);
+            };
             core.ErrorOccured += (o, x) => { };
             core.WarningOccured += (o, x) => { };
             core.TotalMaxDetermined += (o, x) =>
@@ -90,19 +102,25 @@ namespace Grimoire.Functions
             {
                 pb.Dispose();
                 pbMax = 0;
-                if (x.WriteOK) { Console.WriteLine("[OK]"); }
+                if (x.WriteOK) { Output.Write(new Structures.Message() { Lines = new List<string>() { "[OK]" }, ForeColors = new List<ConsoleColor>() { ConsoleColor.Green }, Break = true, Breaks = 1 }); }
             };
         }
 
-
-        // TODO: Dynamically decide the size of the reportInterval
         public bool Load()
         {
             Console.Write("Indexing the data.000...");
-            Index = core.Load(OPT.Instance.GetString("client.path"), true, 64000);
+            string clientPath = OPT.Instance.GetString("client.path");
+            Index = core.Load(clientPath, true, chunkSize(clientPath));
             Console.WriteLine("\t\t- {0} file entries loaded!", Count);
 
             return Index.Count > 0 ? true : false;
+        }
+
+        public string Rebuild(int dataId)
+        {
+            core.RebuildDataFile(ref Index, dataDir, dataId, buildDir);
+        
+            return string.Format(@"{0}\data.00{1}", dataDir, dataId);
         }
 
         public List<IndexEntry> Search(string term, int type)
@@ -147,7 +165,7 @@ namespace Grimoire.Functions
                 foreach (IndexEntry entry in entries)
                 {
                     Console.Write("\t- Deleting {0}...", entry.Name);
-                    core.DeleteEntryByName(ref Index, entry.Name, dataDir, entry.DataID, entry.Offset, entry.Length);
+                    core.DeleteEntryByName(ref Index, entry.Name, dataDir, entry.DataID, entry.Offset, entry.Length, chunkSize(entry.Length));
                     Console.WriteLine("[OK]");
                 }
             }
@@ -159,11 +177,10 @@ namespace Grimoire.Functions
             else if (entries.Count == 1)
             {
                 Console.Write("\t- Exporting file {0}...", entries[0].Name);
-                core.ExportFileEntry(dataDir, string.Format(@"{0}\{1}", buildDir, entries[0].Name), entries[0].Offset, entries[0].Length, 64000);
+                core.ExportFileEntry(dataDir, string.Format(@"{0}\{1}", buildDir, entries[0].Name), entries[0].Offset, entries[0].Length, chunkSize(entries[0].Length));
             }
         }
         
-        // TODO: Dynamically set chunkSize
         public void Import(string filePath)
         {
             if (File.Exists(filePath))
@@ -172,9 +189,39 @@ namespace Grimoire.Functions
                 if (IsEncoded(fileName)) { fileName = DecodeName(fileName); }
                 Console.Write("\t- Importing file {0} to data.00{1}...", fileName, GetID(fileName));
 
-                core.ImportFileEntry(ref Index, dataDir, filePath, 64000);
+                core.ImportFileEntry(ref Index, dataDir, filePath, chunkSize(filePath));
             }
         }
+
+        internal long ClientSize
+        {
+            get
+            {
+                long size = 0;
+
+                for (int i = 0; i < 9; i++)
+                {
+                    string dataPath = string.Format(@"{0}\data.00{1}", dataDir, i);
+                    size += new FileInfo(dataPath).Length;
+                }
+
+                return size;
+            }
+        }
+
+        protected int chunkSize(string filePath)
+        {
+            int chunkSize = OPT.Instance.GetInt("chunk.size");
+            if (chunkSize == 0)
+            {
+                FileInfo fileInfo = new FileInfo(filePath);
+                return Convert.ToInt32(fileInfo.Length * 0.02);
+            }
+
+            return 64000;
+        }
+
+        protected int chunkSize(int length) { return Convert.ToInt32(length * 0.02); }
 
         public void Save()
         {

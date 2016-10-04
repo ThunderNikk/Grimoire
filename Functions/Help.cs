@@ -36,6 +36,7 @@ namespace Grimoire.Functions
             commands.Add("insert", "Inserts or writes a file or file'(s) to the Data.XXX File System.\n\t- Using this commands will write one or multiple files into the desired client's Data.XXX File System.");
             commands.Add("delete", "Deletes or erases a file or file'(s) from the Data.XXX File System by writing zeros over the file bytes in the Data.XXX File System and removes it's entry from the Data Index.\n\t- Using this command will remove one or more files from the desired clients Data.XXX File System.");
             commands.Add("search", "Searches the loaded data.000 for one or more files based on certain criteria.\n\t- Using this command will tell you if a file or files exist in the Data File System.");
+            commands.Add("rebuild", "Rebuilds a data.xxx storage file.\n\t- Using this command will rebuild a data.xxx storage file without any blank spaces caused by client updates.");
             commands.Add("set", "Sets a new variable to an existing config.opt setting.\n\t- Using this command will change a stored config variable that Grimoire uses to determine some operations and behaviors.");
         }
 
@@ -68,9 +69,6 @@ namespace Grimoire.Functions
         {
             List<string> tmpList = new List<string>();
 
-            tmpList.Add("Basic Example: help export");
-            commandExplains.Add("help", tmpList);
-
             #region Export
             tmpList = new List<string>();
             tmpList.Add("Full Export: export-a");
@@ -83,6 +81,12 @@ namespace Grimoire.Functions
             tmpList = new List<string>();
             tmpList.Add("Basic Example: hash");
             commandExplains.Add("help", tmpList);
+            #endregion
+
+            #region Rebuild
+            tmpList = new List<string>();
+            tmpList.Add("Basic Example: rebuild 1");
+            commandExplains.Add("rebuild", tmpList);
             #endregion
 
             #region Search

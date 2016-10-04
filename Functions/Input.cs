@@ -63,5 +63,23 @@ namespace Grimoire.Functions
                 }
             }
         }
+
+        public static int OpenAction
+        {
+            get
+            {
+                Console.WriteLine("Please enter one of the following and press enter!\n\t- [0] (Hash)\n\t- [1] (Insert)\n\t- [2] (Compare)");
+                string response = Console.ReadLine();
+
+                try
+                {
+                    int i = Convert.ToInt32(response);
+                    if (i <= 2) { return i; }
+                }
+                catch { Console.WriteLine("\t- You did not provide a proper answer!"); }
+
+                return 99;
+            }
+        }
     }
 }

@@ -6,7 +6,6 @@ using Grimoire.Functions;
 using Grimoire.GUI;
 using DataCore;
 using DataCore.Structures;
-using System.Windows.Forms;
 using System.Text;
 using Grimoire.Structures;
 
@@ -24,9 +23,12 @@ namespace Grimoire
         [STAThread]
         static void Main(string[] args)
         {
+            Output.Splash();
+
             Console.Write("Loading settings from config.opt...");
             settings.Start();
-            Console.WriteLine("[OK]\n\t- {0} settings loaded!", settings.Count);
+            Output.Write(new Message() { Lines = new List<string>() { "[OK]" }, ForeColors = new List<ConsoleColor>() { ConsoleColor.Green } });
+            Console.WriteLine("\t- {0} settings loaded!", settings.Count);
 
             if (settings.GetString("client.path") == "0")
             {
@@ -40,7 +42,7 @@ namespace Grimoire
 
             Console.Write("Starting the File Manager...");
             FileManager.Start();
-            Console.WriteLine("[OK]");
+            Output.Write(new Message() { Lines = new List<string>() { "[OK]" }, ForeColors = new List<ConsoleColor>() { ConsoleColor.Green } });
 
             if (settings.GetBool("auto.load")) { loadIndex(); }
             else
@@ -54,7 +56,9 @@ namespace Grimoire
 
         public static void Configure()
         {
-            Console.WriteLine("Grimoire v3 Configuration.\nPlease tell me where your client is by choosing an option below:\n\t- Manual [M] (type in the path to your clients data.000\n\t- Assisted [A] use file selection menu to find your data.000 path");
+            Message conMsg = null;
+
+            Console.WriteLine("Grimoire v3 Configuration.\nPlease tell me where your client is by choosing an option below:\n\t- Manual ([M] type in the path to your clients data.000)\n\t- Assisted ([A] use file selection menu to find your data.000 path)");
 
             switch (Console.ReadLine().ToLower())
             {
@@ -112,9 +116,36 @@ namespace Grimoire
             settings.Update("auto.show", Input.YesNo);
             Console.WriteLine("Ok, I'll remember that for you!");
 
-            Console.WriteLine("Would you like to make backups of the data.000 and data.xxx when changes are made?\n\tWARNING! This will increase the time it takes to insert/update files!!!");
+            conMsg = new Message()
+            {
+                Lines = new List<string>()
+                {
+                    "Would you like to make a backup of the data.000 and data.xxx files when changes are made to them?",
+                    "\t- It is highly recommended that you enable this function!",
+                    "\t- Enabling this feature will cause a slight performance loss on I/O operations."
+                },
+                ForeColors = new List<ConsoleColor>()
+                {
+                    ConsoleColor.White,
+                    ConsoleColor.Red,
+                    ConsoleColor.DarkYellow
+                }
+            };
+
+            Output.Write(conMsg);
             settings.Update("backups", Input.YesNo);
             Console.WriteLine("Ok, I'll remember that for you!");
+
+            Console.WriteLine("Would you like to automatically hash files that are dropped on the File Receiver Interface durinng a hash operation?");
+            settings.Update("auto.hash", Input.YesNo);
+            Console.WriteLine("Ok, I'll remember that for you!");
+
+            Console.WriteLine("Would you like to set a default action when Grimoire is opened by dragging a file or files onto it's executable?");
+            if (Input.YesNo)
+            {
+                int action = Input.OpenAction;
+                if (action != 99) { settings.Update("open.action", action); }
+            }
         }
 
         protected static void loadIndex() { FileManager.Load(); }

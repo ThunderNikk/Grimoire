@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.IO;
@@ -19,10 +18,12 @@ namespace Grimoire.Functions
         {
             "s|client.path|0",
             "s|build.path|0",
+            "b|auto.hash|false",
             "b|auto.load|false",
             "b|auto.show|false",
             "b|backups|true",
-            "n|chunk.size|64000"
+            "n|chunk.size|0",
+            "n|open.action|0", // 0 = Hash, 1 = Insert, 2 = Compare           
         };
 
         protected static OPT instance;

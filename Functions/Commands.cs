@@ -31,7 +31,9 @@ namespace Grimoire.Functions
             cmdList.Add("export", exportFile);
             cmdList.Add("insert", insertFile);
             cmdList.Add("delete", deleteFile);
+            cmdList.Add("rebuild", rebuild);
             cmdList.Add("search", searchFile);
+            cmdList.Add("shrink", shrink);
             cmdList.Add("set", set);
         }
 
@@ -48,16 +50,14 @@ namespace Grimoire.Functions
 
             if (cmdBlocks.Length == 2)
             {
-                // If the cmdBlocks[1] contains a flag set flags
                 if (cmdBlocks[1].Contains('-'))
                 {
                     cmd.Flags = cmdBlocks[1].Contains(',') ? cmdBlocks[1].Split(',').ToList<string>() : new List<string> { cmdBlocks[1] };
                 }
-                else { cmd.Variable = cmdBlocks[1]; }                     
+                else { cmd.Variable = cmdBlocks[1]; }
             }
             else if (cmdBlocks.Length == 3)
             {
-                // If the cmdBlocks[1] contains a flag set flags
                 if (cmdBlocks[1].Contains('-'))
                 {
                     cmd.Flags = cmdBlocks[1].Contains(',') ? cmdBlocks[1].Split(',').ToList<string>() : new List<string> { cmdBlocks[1] };
@@ -67,7 +67,7 @@ namespace Grimoire.Functions
                 {
                     cmd.Variable = string.Format("{0} {1}", cmdBlocks[1], cmdBlocks[2]);
                 }
-                else { cmd.Variable = cmdBlocks[2]; }            
+                else { cmd.Variable = cmdBlocks[2]; }
             }
 
             return cmd;
@@ -117,8 +117,14 @@ namespace Grimoire.Functions
                     Console.WriteLine("\t- [Current] {0} [New] {1}", fileName, newName);
                 }
 
-                Console.WriteLine("Would you like to hash/unhash these files?");
-                if (Input.YesNo)
+                bool hash = OPT.Instance.GetBool("auto.hash");
+                if (!hash)
+                {
+                    Console.WriteLine("Would you like to hash/unhash these files?");
+                    hash = Input.YesNo;
+                }
+
+                if (hash)
                 {
                     Console.Write("Hashing/Unhashing {0} files...", newPaths.Count);
                     ProgressBar pb = new ProgressBar();
@@ -130,7 +136,9 @@ namespace Grimoire.Functions
                     }
 
                     pb.Dispose();
-                    Console.WriteLine("[OK]");
+
+                    Output.Write(new Message() { Lines = new List<string>() { "[OK]", "\t- Press Enter to continue." }, ForeColors = new List<ConsoleColor>() { ConsoleColor.Green } });
+                    Console.ReadLine();
                 }
             }
             else { Console.WriteLine("No files were specified!"); }
@@ -138,7 +146,7 @@ namespace Grimoire.Functions
 
         private void showHelp(Command command)
         {
-            Help.Instance.ExplainCommand(command.Name == "help" && string.IsNullOrEmpty(command.Variable)  ? "help" : command.Variable);
+            Help.Instance.ExplainCommand(command.Name == "help" && string.IsNullOrEmpty(command.Variable) ? "help" : command.Variable);
         }
 
         private void configure(Command command) { Program.Configure(); }
@@ -168,7 +176,7 @@ namespace Grimoire.Functions
                         }
 
                         Console.WriteLine("Comparing the hash of local file {0} with stored copy...", fileName);
-                        
+
                         string sourceHash = Hash.GetSHA512Hash(file);
 
                         Console.WriteLine("\t- Source File Hash: {0}", sourceHash);
@@ -189,7 +197,7 @@ namespace Grimoire.Functions
                                 if (sourceHash == storedHash) { Console.WriteLine("\t\t- The two files match!"); }
                             }
                         }
-                        else { Console.WriteLine("\t- NO MATCHES FOUND!"); }                                           
+                        else { Console.WriteLine("\t- NO MATCHES FOUND!"); }
                     }
                 }
             }
@@ -251,7 +259,7 @@ namespace Grimoire.Functions
 
             if (results != null && results.Count > 0) { Program.FileManager.Export(ref results); }
             else { Console.WriteLine("\t- There were no exportable results!"); }
-            
+
         }
 
         private void deleteFile(Command command)
@@ -267,6 +275,28 @@ namespace Grimoire.Functions
             Program.FileManager.Save();
         }
 
+        private void rebuild(Command command)
+        {
+            string dataPath = null;
+
+            try
+            {
+                int var = Convert.ToInt32(command.Variable);
+                if (var >= 1 && var <= 9)
+                {
+                    Console.WriteLine("Are you sure you want to rebuild Data.00{0}", var);
+                    if (Input.YesNo) { dataPath = Program.FileManager.Rebuild(var); }
+                }
+                else { Console.WriteLine("\t- You must enter a number between 1 and 8"); return; }
+
+                if (!string.IsNullOrEmpty(dataPath)) { replaceFile(dataPath); }
+
+                Program.FileManager.Save();
+
+            }
+            catch { Console.WriteLine("\t- You have not entered a number!"); }
+        }
+
         private void searchFile(Command command)
         {
             Console.Write("Searching for {0}...", command.Variable);
@@ -277,8 +307,8 @@ namespace Grimoire.Functions
                 if (command.Flags.Contains("-p")) { results = Program.FileManager.Search(command.Variable, 1); }
                 else if (command.Flags.Contains("-e"))
                 {
-                    if (command.Variable.Length == 3) { results = Program.FileManager.Search(command.Variable, 2); }
-                    else { Console.WriteLine("[FAIL]\n\t- You have not provided a proper extension! (e.g. rdb)"); return; }                    
+                    if (command.Variable.Length >= 2) { results = Program.FileManager.Search(command.Variable, 2); }
+                    else { Console.WriteLine("[FAIL]\n\t- You have not provided a proper extension! (e.g. rdb)"); return; }
                 }
             }
             else { results = Program.FileManager.Search(command.Variable, 0); }
@@ -295,6 +325,30 @@ namespace Grimoire.Functions
             else if (results.Count == 1)
             {
                 Console.WriteLine("[FOUND]\n\t- Location: data.00{0}\n\t- Offset: {1}\n\t- Length: {2}", results[0].DataID, results[0].Offset, results[0].Length);
+            }
+        }
+
+        private void shrink(Command command)
+        {
+            long originalSize = Program.FileManager.ClientSize;
+
+            string dataPath = null;
+
+            Console.WriteLine("Are you sure you want to rebuild the client? This may take some time.");
+            if (Input.YesNo)
+            {
+                for (int i = 1; i < 9; i++)
+                {
+                    Console.WriteLine("Rebuilding data.00{0}...", i);
+                    dataPath = Program.FileManager.Rebuild(i);
+
+                    if (!string.IsNullOrEmpty(dataPath)) { replaceFile(dataPath); }
+                }
+
+                Program.FileManager.Save();
+
+                long newSize = Program.FileManager.ClientSize;
+                Console.WriteLine("\t- Client size reduced from: {0} to {1}", originalSize, newSize);
             }
         }
 
@@ -333,6 +387,14 @@ namespace Grimoire.Functions
                     }
                 }
             }
+        }
+
+        protected void replaceFile(string dataPath)
+        {
+            Console.Write("\t- Cleaning up...");
+            File.Delete(dataPath);
+            File.Move(string.Format(@"{0}_NEW", dataPath), dataPath);
+            Output.Write(new Message() { Lines = new List<string>() { "[OK]" }, ForeColors = new List<ConsoleColor>() { ConsoleColor.Green } });
         }
 
         #endregion
